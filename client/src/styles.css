@@ -1,0 +1,200 @@
+:root {
+  --parchment: #f4ecd8;
+  --parchment-deep: #ece2c8;
+  --ink: #2b2520;
+  --ink-soft: #5a4f44;
+  --ink-faint: #8a7e70;
+  --rule: #c9bda1;
+  --accent: #7a3b2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 80px 32px 120px;
+}
+
+.masthead {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.masthead h1 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 56px;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+
+.masthead .subtitle {
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 20px;
+  margin: 0;
+}
+
+.rule {
+  width: 80px;
+  height: 1px;
+  background: var(--rule);
+  margin: 32px auto;
+  border: 0;
+}
+
+.ask-form {
+  margin-bottom: 56px;
+}
+
+.ask-form label {
+  display: block;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 20px;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+  font-style: italic;
+  text-align: center;
+}
+
+.ask-form textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 20px 22px;
+  background: rgba(255, 252, 244, 0.6);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--ink);
+  resize: vertical;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ask-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 252, 244, 0.9);
+}
+
+.ask-form textarea::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.ask-form button {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  padding: 12px 36px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.ask-form button:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--parchment);
+}
+
+.ask-form button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.loading,
+.error {
+  text-align: center;
+  margin: 40px 0;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.error {
+  color: var(--accent);
+}
+
+.responses {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.card {
+  background: rgba(255, 252, 244, 0.5);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 40px 44px;
+}
+
+.card header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.card h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 600;
+  font-size: 30px;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.card .era {
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.card .response {
+  font-size: 19px;
+  line-height: 1.75;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 48px 20px 80px;
+  }
+  .masthead h1 {
+    font-size: 40px;
+  }
+  .card {
+    padding: 28px 24px;
+  }
+  .card h2 {
+    font-size: 24px;
+  }
+}
