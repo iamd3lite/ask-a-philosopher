@@ -189,7 +189,7 @@ function pickPhilosophers(problem, n = 3) {
   return picked.slice(0, n).map((name) => PHILOSOPHERS.find((p) => p.name === name)).filter(Boolean);
 }
 
-function buildPrompt(philosopher, userInput) {
+function buildSystemPrompt(philosopher) {
   const grounding = [
     "Core ideas:",
     ...philosopher.core_ideas.map((i) => `- ${i}`),
@@ -198,19 +198,42 @@ function buildPrompt(philosopher, userInput) {
     ...philosopher.sample_quotes.map((q) => `- "${q}"`),
   ].join("\n");
 
-  return `You are simulating the philosopher ${philosopher.name}, grounded strictly in their real recorded ideas and writing style.
+  return `You ARE ${philosopher.name} (${philosopher.era}). You are present in this chat, texting a friend. Stay yourself the whole time.
 
-Reference material:
+Reference material grounding your worldview:
 ${grounding}
 
-A person has shared this problem: "${userInput}"
-
-Respond in 3-5 sentences, in ${philosopher.name}'s voice and worldview, as if speaking directly to this person. Be specific to their problem, not generic. End with one practical reflection or exercise rooted in their philosophy.
-
-Do not break character. Do not mention you are an AI.`;
+How to reply:
+- 1-2 sentences max. Reply like a real text message — warm, casual, unmistakably in your voice.
+- Speak directly to them. No preamble, no "Ah" or "My friend" openers, no lecturing, no quoting yourself in third person.
+- If they ask about YOU — your name, age, family, where you live, your work, your day, the weather, what year it is — answer truthfully from your own life as ${philosopher.name} in your historical period. Use what you actually know about yourself: who you loved, what you did for work, how you died, who you taught, the city and century you lived in. Don't deflect to philosophy, just answer like a person.
+- This is an ongoing conversation. Remember and build on what was just said. Don't repeat yourself or restart the topic. If they reference something earlier, follow the thread.
+- If the question is silly or small, answer small. If it's heavy, meet it. Match the register.
+- Never say you are an AI, never break character, never refuse a personal question. No emojis.`;
 }
 
-async function askPhilosopher(philosopher, userInput) {
+const HISTORY_LIMIT = 12; // last 6 user/philosopher pairs
+
+function buildChatMessages(philosopher, userInput, history) {
+  const turns = [];
+  if (Array.isArray(history)) {
+    for (const t of history.slice(-HISTORY_LIMIT)) {
+      if (!t || typeof t.text !== "string" || !t.text.trim()) continue;
+      if (t.role === "user") {
+        turns.push({ role: "user", content: t.text });
+      } else if (t.role === "philosopher" || t.role === "assistant") {
+        turns.push({ role: "assistant", content: t.text });
+      }
+    }
+  }
+  return [
+    { role: "system", content: buildSystemPrompt(philosopher) },
+    ...turns,
+    { role: "user", content: userInput },
+  ];
+}
+
+async function askPhilosopher(philosopher, userInput, history) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -219,8 +242,9 @@ async function askPhilosopher(philosopher, userInput) {
     },
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: buildPrompt(philosopher, userInput) }],
+      max_tokens: 160,
+      temperature: 0.8,
+      messages: buildChatMessages(philosopher, userInput, history),
     }),
   });
 
@@ -233,25 +257,50 @@ async function askPhilosopher(philosopher, userInput) {
   return {
     philosopher: philosopher.name,
     era: philosopher.era,
+    avatar: philosopher.avatar ?? null,
     response: data.choices[0].message.content.trim(),
   };
 }
 
 app.post("/api/ask", async (req, res) => {
-  const { problem } = req.body ?? {};
+  const { problem, philosopher: requestedName, history } = req.body ?? {};
   if (typeof problem !== "string" || !problem.trim()) {
     return res.status(400).json({ error: "Missing or empty 'problem' field." });
   }
 
   try {
-    const chosen = pickPhilosophers(problem, 3);
-    const responses = await Promise.all(chosen.map((p) => askPhilosopher(p, problem.trim())));
+    let chosen;
+    if (typeof requestedName === "string" && requestedName.trim()) {
+      const match = PHILOSOPHERS.find((p) => p.name === requestedName.trim());
+      if (!match) {
+        return res.status(400).json({ error: `Unknown philosopher: ${requestedName}` });
+      }
+      chosen = [match];
+    } else {
+      chosen = pickPhilosophers(problem, 3);
+    }
+    // History only applies when a specific philosopher is selected.
+    const ctx = chosen.length === 1 ? history : undefined;
+    const responses = await Promise.all(
+      chosen.map((p) => askPhilosopher(p, problem.trim(), ctx)),
+    );
     res.json({ responses });
   } catch (err) {
     console.error("Error in /api/ask:", err);
     const status = err?.status ?? 500;
     res.status(status).json({ error: err?.message ?? "Internal error" });
   }
+});
+
+app.get("/api/philosophers", (_req, res) => {
+  res.json({
+    philosophers: PHILOSOPHERS.map((p) => ({
+      name: p.name,
+      era: p.era,
+      avatar: p.avatar ?? null,
+      bio: p.bio ?? null,
+    })),
+  });
 });
 
 app.get("/api/health", (_req, res) => {

@@ -1,6 +1,8 @@
 {
   "name": "Epictetus",
   "era": "Roman Empire, c. 50–135 CE (Stoic, former slave)",
+  "avatar": "https://commons.wikimedia.org/wiki/Special:FilePath/Epictetus.jpg?width=200",
+  "bio": "Born a slave, freed in Rome, taught that freedom is what no one can take from you.",
   "core_ideas": [
     "Some things are up to us; some are not. Our judgments, desires, and aversions are ours; bodies, possessions, reputation, and outcomes are not.",
     "Suffering comes not from things but from our opinions about things. Correct the opinion, and the suffering loosens.",

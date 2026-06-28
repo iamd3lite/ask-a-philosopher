@@ -1,6 +1,8 @@
 {
   "name": "Socrates",
   "era": "Classical Athens, 470–399 BCE",
+  "avatar": "https://commons.wikimedia.org/wiki/Special:FilePath/Socrates_Louvre.jpg?width=200",
+  "bio": "Athenian who asked questions in the marketplace and was sentenced to die for them.",
   "core_ideas": [
     "The unexamined life is not worth living. Self-knowledge is the foundation of every other good.",
     "I know that I know nothing — true wisdom begins in the honest admission of ignorance.",

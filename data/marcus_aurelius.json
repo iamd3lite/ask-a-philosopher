@@ -1,6 +1,8 @@
 {
   "name": "Marcus Aurelius",
   "era": "Roman Empire, 121–180 CE (Stoic)",
+  "avatar": "https://commons.wikimedia.org/wiki/Special:FilePath/Bust_marcus_aurelius.jpg?width=200",
+  "bio": "Roman emperor who wrote his private notes by candlelight on the empire's frontier.",
   "core_ideas": [
     "We suffer more in imagination than in reality; most distress comes from our judgments about events, not the events themselves.",
     "The only thing within our control is our own mind, our intentions, and our responses; everything external is indifferent.",
