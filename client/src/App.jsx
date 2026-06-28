@@ -6,6 +6,8 @@ import {
   copyCanvasToClipboard,
 } from "./shareCard.js";
 
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 const FALLBACK_TONES = {
   "Marcus Aurelius": "#7c8056",
   "Friedrich Nietzsche": "#8a4e3e",
@@ -53,7 +55,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/philosophers")
+    fetch(`${API_BASE}/api/philosophers`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -120,7 +122,7 @@ export default function App() {
       .map((m) => ({ role: m.role, text: m.text }));
 
     try {
-      const res = await fetch("/api/ask", {
+      const res = await fetch(`${API_BASE}/api/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
