@@ -32,6 +32,39 @@ function formatTime(d) {
   }).format(d);
 }
 
+function formatRelative(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "now";
+  if (diffMin < 60) return `${diffMin}m`;
+  const sameDay =
+    now.getFullYear() === d.getFullYear() &&
+    now.getMonth() === d.getMonth() &&
+    now.getDate() === d.getDate();
+  if (sameDay) {
+    const diffH = Math.floor(diffMin / 60);
+    return `${diffH}h`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    yesterday.getFullYear() === d.getFullYear() &&
+    yesterday.getMonth() === d.getMonth() &&
+    yesterday.getDate() === d.getDate();
+  if (isYesterday) return "yesterday";
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 7) {
+    return new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(d);
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
 let messageId = 0;
 const nextId = () => ++messageId;
 
@@ -40,10 +73,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
+  const [sessionId, setSessionId] = useState(null);
   const [philosophers, setPhilosophers] = useState([]);
   const [selected, setSelected] = useState("");
   const [saved, setSaved] = useState([]);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [chatsOpen, setChatsOpen] = useState(false);
+  const [sessions, setSessions] = useState(null);
+  const [sessionsError, setSessionsError] = useState("");
   const [shareTarget, setShareTarget] = useState(null);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -79,6 +116,7 @@ export default function App() {
     if (!selected) return;
     if (prevSelectedRef.current && prevSelectedRef.current !== selected) {
       setMessages([]);
+      setSessionId(null);
       setError("");
     }
     prevSelectedRef.current = selected;
@@ -90,6 +128,61 @@ export default function App() {
       behavior: "smooth",
     });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!chatsOpen) return;
+    let cancelled = false;
+    setSessions(null);
+    setSessionsError("");
+    fetch(`${API_BASE}/api/sessions`)
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (cancelled) return;
+        if (!ok) throw new Error(d?.error ?? "Could not load chats.");
+        setSessions(d.groups ?? []);
+      })
+      .catch((err) => {
+        if (!cancelled) setSessionsError(err.message ?? "Could not load chats.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatsOpen]);
+
+  async function handleLoadSession(id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/sessions/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
+      const philosopher = philosophers.find((p) => p.name === data.philosopherName);
+      const hydrated = (data.messages ?? []).map((m) => {
+        const base = {
+          id: nextId(),
+          role: m.role,
+          text: m.text,
+          timestamp: new Date(m.createdAt),
+        };
+        if (m.role === "philosopher") {
+          return {
+            ...base,
+            philosopher: data.philosopherName,
+            era: philosopher?.era ?? "",
+            avatar: philosopher?.avatar ?? null,
+          };
+        }
+        return base;
+      });
+      // Prevent the philosopher-switch effect from wiping the messages we just loaded.
+      prevSelectedRef.current = data.philosopherName;
+      setSelected(data.philosopherName);
+      setMessages(hydrated);
+      setSessionId(data.id);
+      setError("");
+      setChatsOpen(false);
+    } catch (err) {
+      setSessionsError(err.message ?? "Could not load chat.");
+    }
+  }
 
   function autoSize() {
     const el = textareaRef.current;
@@ -129,12 +222,14 @@ export default function App() {
           problem: trimmed,
           philosopher: selected,
           history,
+          sessionId,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error ?? `Request failed (${res.status})`);
       }
+      if (data.sessionId) setSessionId(data.sessionId);
       const now = new Date();
       const philosopherMsgs = (data.responses ?? []).map((r, i) => ({
         id: nextId(),
@@ -190,6 +285,15 @@ export default function App() {
   return (
     <div className="stoa">
       <header className="masthead">
+        <button
+          type="button"
+          className="masthead-action masthead-action-left"
+          onClick={() => setChatsOpen(true)}
+          aria-label="Open chats"
+          title="Chats"
+        >
+          <ChatIcon />
+        </button>
         <button
           type="button"
           className="masthead-action"
@@ -328,6 +432,16 @@ export default function App() {
             setSavedOpen(false);
             setShareTarget(quote);
           }}
+        />
+      )}
+
+      {chatsOpen && (
+        <ChatListPanel
+          sessions={sessions}
+          error={sessionsError}
+          philosophers={philosophers}
+          onClose={() => setChatsOpen(false)}
+          onSelect={handleLoadSession}
         />
       )}
 
@@ -521,6 +635,99 @@ function SavedPanel({ saved, onClose, onRemove, onShare }) {
   );
 }
 
+function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const loading = sessions === null && !error;
+  const empty = !loading && !error && sessions?.length === 0;
+  const philByName = new Map(philosophers.map((p) => [p.name, p]));
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div
+        className="panel"
+        role="dialog"
+        aria-label="Chats"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="panel-head">
+          <div>
+            <h2>Chats</h2>
+            <p className="panel-sub">
+              {loading
+                ? "Gathering conversations…"
+                : empty
+                  ? "Nothing here yet."
+                  : "Tap a conversation to return to it."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="icon-btn close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <CloseIcon />
+          </button>
+        </header>
+
+        <div className="panel-body">
+          {error && <p className="chat-error">{error}</p>}
+          {empty && (
+            <p className="panel-empty">
+              Ask a philosopher something to begin. Their reply will live here.
+            </p>
+          )}
+          {sessions && sessions.length > 0 && (
+            <ul className="chat-groups">
+              {sessions.map((group) => {
+                const phil = philByName.get(group.philosopherName);
+                return (
+                  <li key={group.philosopherName} className="chat-group">
+                    <div className="chat-group-head">
+                      <Avatar
+                        name={group.philosopherName}
+                        src={phil?.avatar}
+                        size={32}
+                      />
+                      <span className="name">{group.philosopherName}</span>
+                    </div>
+                    <ul className="chat-session-list">
+                      {group.sessions.map((s) => (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            className="chat-session"
+                            onClick={() => onSelect(s.id)}
+                          >
+                            <span className="chat-session-preview">
+                              {s.lastRole === "user" ? "You: " : ""}
+                              {s.preview}
+                            </span>
+                            <span className="chat-session-time">
+                              {formatRelative(s.lastAt)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ShareModal({ message, onClose }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -683,6 +890,20 @@ function ShareIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M4 6.5 C 4 5 5 4 6.5 4 L17.5 4 C 19 4 20 5 20 6.5 L20 14.5 C 20 16 19 17 17.5 17 L10 17 L6 20.5 L6 17 C 5 17 4 16 4 14.5 Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
         strokeLinejoin="round"
       />
     </svg>

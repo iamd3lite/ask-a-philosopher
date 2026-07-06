@@ -130,11 +130,26 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import { readFile, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import ChatSession from "./models/ChatSession.js";
 
 dotenv.config();
+
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    if (err?.reason?.servers) {
+      const servers = err.reason.servers instanceof Map
+        ? Object.fromEntries(err.reason.servers)
+        : err.reason.servers;
+      console.error("reason.servers:", JSON.stringify(servers, null, 2));
+    }
+  });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -262,8 +277,26 @@ async function askPhilosopher(philosopher, userInput, history) {
   };
 }
 
+async function persistTurn({ sessionId, philosopherName, userText, philosopherText }) {
+  const now = new Date();
+  const newMessages = [
+    { role: "user", text: userText, createdAt: now },
+    { role: "philosopher", text: philosopherText, createdAt: now },
+  ];
+  if (sessionId && mongoose.isValidObjectId(sessionId)) {
+    const updated = await ChatSession.findByIdAndUpdate(
+      sessionId,
+      { $push: { messages: { $each: newMessages } } },
+      { new: true },
+    );
+    if (updated) return updated._id.toString();
+  }
+  const session = await ChatSession.create({ philosopherName, messages: newMessages });
+  return session._id.toString();
+}
+
 app.post("/api/ask", async (req, res) => {
-  const { problem, philosopher: requestedName, history } = req.body ?? {};
+  const { problem, philosopher: requestedName, history, sessionId } = req.body ?? {};
   if (typeof problem !== "string" || !problem.trim()) {
     return res.status(400).json({ error: "Missing or empty 'problem' field." });
   }
@@ -284,11 +317,90 @@ app.post("/api/ask", async (req, res) => {
     const responses = await Promise.all(
       chosen.map((p) => askPhilosopher(p, problem.trim(), ctx)),
     );
-    res.json({ responses });
+
+    let savedSessionId = null;
+    if (chosen.length === 1) {
+      try {
+        savedSessionId = await persistTurn({
+          sessionId,
+          philosopherName: chosen[0].name,
+          userText: problem.trim(),
+          philosopherText: responses[0].response,
+        });
+      } catch (persistErr) {
+        console.error("Failed to persist chat session:", persistErr);
+      }
+    }
+
+    res.json({ responses, sessionId: savedSessionId });
   } catch (err) {
     console.error("Error in /api/ask:", err);
     const status = err?.status ?? 500;
     res.status(status).json({ error: err?.message ?? "Internal error" });
+  }
+});
+
+app.get("/api/sessions", async (_req, res) => {
+  try {
+    const groups = await ChatSession.aggregate([
+      { $match: { "messages.0": { $exists: true } } },
+      {
+        $project: {
+          philosopherName: 1,
+          updatedAt: 1,
+          messageCount: { $size: "$messages" },
+          lastMessage: { $last: "$messages" },
+        },
+      },
+      { $sort: { updatedAt: -1 } },
+      {
+        $group: {
+          _id: "$philosopherName",
+          latestAt: { $first: "$updatedAt" },
+          sessions: {
+            $push: {
+              id: { $toString: "$_id" },
+              preview: { $substrCP: ["$lastMessage.text", 0, 140] },
+              lastRole: "$lastMessage.role",
+              lastAt: "$updatedAt",
+              messageCount: "$messageCount",
+            },
+          },
+        },
+      },
+      { $sort: { latestAt: -1 } },
+      { $project: { _id: 0, philosopherName: "$_id", sessions: 1 } },
+    ]);
+    res.json({ groups });
+  } catch (err) {
+    console.error("Error in /api/sessions:", err);
+    res.status(500).json({ error: err?.message ?? "Internal error" });
+  }
+});
+
+app.get("/api/sessions/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid session id." });
+  }
+  try {
+    const session = await ChatSession.findById(id).lean();
+    if (!session) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+    res.json({
+      id: session._id.toString(),
+      philosopherName: session.philosopherName,
+      messages: session.messages.map((m) => ({
+        role: m.role,
+        text: m.text,
+        createdAt: m.createdAt,
+      })),
+      updatedAt: session.updatedAt,
+    });
+  } catch (err) {
+    console.error("Error in /api/sessions/:id:", err);
+    res.status(500).json({ error: err?.message ?? "Internal error" });
   }
 });
 
