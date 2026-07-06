@@ -9,16 +9,55 @@ const TONES = {
   "Albert Camus": "#9c7a4f",
 };
 
-function loadImage(src) {
-  return new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.referrerPolicy = "no-referrer";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = src;
-  });
+// Load the avatar into a form the canvas can safely draw + export.
+//
+// A plain `new Image()` with `crossOrigin = "anonymous"` sounds right, but the
+// same URL has already been loaded (without CORS) by the DOM <img> in the chat
+// bubble. Some browsers hand back that cached, CORS-tainted response, which
+// makes canvas.toBlob() throw a SecurityError. Fetching separately as a blob
+// bypasses the DOM's image cache and gives us a same-origin blob: URL that the
+// canvas is always happy to export.
+async function loadImage(src) {
+  if (!src) return null;
+  try {
+    const res = await fetch(src, {
+      mode: "cors",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      cache: "force-cache",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const img = await new Promise((resolve) => {
+      const el = new Image();
+      el.decoding = "async";
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = url;
+    });
+    if (img && typeof img.decode === "function") {
+      try {
+        await img.decode();
+      } catch {
+        // decode() can throw on some browsers even when the image is usable
+      }
+    }
+    // Attach so caller can revoke after drawing. Revoking now is technically
+    // safe on most browsers, but a few decode lazily during drawImage.
+    if (img) img.__blobUrl = url;
+    else URL.revokeObjectURL(url);
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+function releaseImage(img) {
+  if (img && img.__blobUrl) {
+    URL.revokeObjectURL(img.__blobUrl);
+    img.__blobUrl = null;
+  }
 }
 
 async function ensureFonts() {
@@ -221,6 +260,7 @@ export async function renderShareCard({ philosopher, era, avatar, text }) {
   const attrib = "A S K   A   P H I L O S O P H E R";
   ctx.fillText(attrib, W / 2, H - 50);
 
+  releaseImage(img);
   return canvas;
 }
 

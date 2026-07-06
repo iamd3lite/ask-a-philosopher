@@ -149,6 +149,14 @@ export default function App() {
     };
   }, [chatsOpen]);
 
+  function handleNewChat() {
+    setMessages([]);
+    setSessionId(null);
+    setError("");
+    setChatsOpen(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   async function handleLoadSession(id) {
     try {
       const res = await fetch(`${API_BASE}/api/sessions/${id}`);
@@ -442,6 +450,7 @@ export default function App() {
           philosophers={philosophers}
           onClose={() => setChatsOpen(false)}
           onSelect={handleLoadSession}
+          onNewChat={handleNewChat}
         />
       )}
 
@@ -536,8 +545,11 @@ function UserBubble({ message }) {
 }
 
 function TypingBubble({ selected }) {
+  const label = selected
+    ? `${firstName(selected.name)} is thinking…`
+    : "Thinking…";
   return (
-    <div className="row row-left typing-row">
+    <div className="row row-left typing-row" aria-live="polite">
       {selected ? (
         <Avatar name={selected.name} src={selected.avatar} />
       ) : (
@@ -546,6 +558,7 @@ function TypingBubble({ selected }) {
         </div>
       )}
       <div className="bubble-wrap">
+        <div className="typing-label">{label}</div>
         <div className="bubble bubble-philosopher typing">
           <span className="dot" />
           <span className="dot" />
@@ -635,7 +648,7 @@ function SavedPanel({ saved, onClose, onRemove, onShare }) {
   );
 }
 
-function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
+function ChatListPanel({ sessions, error, philosophers, onClose, onSelect, onNewChat }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose();
@@ -649,15 +662,15 @@ function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
   const philByName = new Map(philosophers.map((p) => [p.name, p]));
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="panel"
+    <div className="sidebar-scrim" onClick={onClose}>
+      <aside
+        className="sidebar"
         role="dialog"
         aria-label="Chats"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="panel-head">
-          <div>
+        <header className="sidebar-head">
+          <div className="sidebar-head-title">
             <h2>Chats</h2>
             <p className="panel-sub">
               {loading
@@ -669,7 +682,7 @@ function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
           </div>
           <button
             type="button"
-            className="icon-btn close-btn"
+            className="icon-btn sidebar-close"
             onClick={onClose}
             aria-label="Close"
           >
@@ -677,13 +690,21 @@ function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
           </button>
         </header>
 
-        <div className="panel-body">
+        <div className="sidebar-toolbar">
+          <button
+            type="button"
+            className="new-chat-btn"
+            onClick={onNewChat}
+          >
+            <PlusIcon />
+            <span>New chat</span>
+          </button>
+        </div>
+
+        <div className="sidebar-body">
           {error && <p className="chat-error">{error}</p>}
-          {empty && (
-            <p className="panel-empty">
-              Ask a philosopher something to begin. Their reply will live here.
-            </p>
-          )}
+          {loading && <ChatListSkeleton />}
+          {empty && <EmptyChatState onStart={onNewChat} />}
           {sessions && sessions.length > 0 && (
             <ul className="chat-groups">
               {sessions.map((group) => {
@@ -723,7 +744,77 @@ function ChatListPanel({ sessions, error, philosophers, onClose, onSelect }) {
             </ul>
           )}
         </div>
+      </aside>
+    </div>
+  );
+}
+
+function EmptyChatState({ onStart }) {
+  return (
+    <div className="chat-empty">
+      <div className="chat-empty-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="56" height="56">
+          <path
+            d="M14 22 C 14 18, 17 15, 21 15 L43 15 C 47 15, 50 18, 50 22 L50 38 C 50 42, 47 45, 43 45 L28 45 L20 52 L20 45 C 17 45, 14 42, 14 38 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M24 28 L40 28 M24 34 L36 34"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            opacity="0.55"
+          />
+        </svg>
       </div>
+      <h3 className="chat-empty-title">Start your first conversation</h3>
+      <p className="chat-empty-body">
+        Choose a philosopher and share what's on your mind. Your conversations
+        will gather here, waiting whenever you return.
+      </p>
+      <button type="button" className="new-chat-btn chat-empty-cta" onClick={onStart}>
+        <PlusIcon />
+        <span>Begin</span>
+      </button>
+    </div>
+  );
+}
+
+function ChatListSkeleton() {
+  const groups = [
+    { rows: 2, widths: ["82%", "64%"] },
+    { rows: 3, widths: ["74%", "88%", "56%"] },
+    { rows: 1, widths: ["70%"] },
+  ];
+  return (
+    <div className="chat-skeleton" aria-hidden="true">
+      <ul className="chat-groups">
+        {groups.map((g, gi) => (
+          <li key={gi} className="chat-group skeleton-group">
+            <div className="chat-group-head skeleton-group-head">
+              <span className="skel skel-avatar" />
+              <span className="skel skel-line skel-name" />
+            </div>
+            <ul className="chat-session-list">
+              {Array.from({ length: g.rows }).map((_, ri) => (
+                <li key={ri}>
+                  <div className="chat-session skeleton-session">
+                    <span
+                      className="skel skel-line skel-preview"
+                      style={{ width: g.widths[ri] }}
+                    />
+                    <span className="skel skel-line skel-time" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <span className="sr-only">Loading conversations…</span>
     </div>
   );
 }
@@ -905,6 +996,19 @@ function ChatIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path
+        d="M12 5 L12 19 M5 12 L19 12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
