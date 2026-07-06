@@ -2,7 +2,7 @@
 
 Bring a real-life problem; get responses from 2–3 historical philosophers, each in their own voice and worldview, grounded in their real ideas.
 
-## Structure
+##  Structure
 
 ```
 /client   React + Vite frontend
