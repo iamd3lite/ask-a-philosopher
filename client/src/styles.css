@@ -1455,3 +1455,381 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* ============================================================
+   Auth screens (login / signup)
+   Built from the existing stoa language: parchment surface,
+   olive accents, Cormorant/EB Garamond serifs, composer-style
+   inputs. Shares .primary-btn from the share modal.
+   ============================================================ */
+
+.auth-stage {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px calc(40px + env(safe-area-inset-bottom));
+  position: relative;
+}
+
+/* Faint fluted column edges, echoing .stoa on wide screens. */
+@media (min-width: 900px) {
+  .auth-stage::before,
+  .auth-stage::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    background-image: repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent 5px,
+      rgba(120, 100, 70, 0.06) 5px,
+      rgba(120, 100, 70, 0.06) 7px
+    );
+    pointer-events: none;
+  }
+  .auth-stage::before {
+    left: calc(50% - 320px);
+  }
+  .auth-stage::after {
+    right: calc(50% - 320px);
+  }
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(
+    to bottom,
+    rgba(251, 246, 232, 0.9),
+    rgba(243, 236, 217, 0.92)
+  );
+  border: 1px solid rgba(197, 184, 150, 0.6);
+  border-radius: 18px;
+  padding: 30px 34px 34px;
+  box-shadow: 0 20px 60px rgba(60, 45, 25, 0.16);
+  animation: panel-in 260ms ease-out both;
+}
+
+.auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-faint);
+  text-decoration: none;
+  padding: 4px 8px 4px 4px;
+  margin: -4px 0 6px -4px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.auth-back:hover {
+  color: var(--olive);
+  background: rgba(111, 117, 72, 0.07);
+}
+
+.auth-back svg {
+  transition: transform 0.15s;
+}
+
+.auth-back:hover svg {
+  transform: translateX(-2px);
+}
+
+.auth-head {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.auth-laurel {
+  color: var(--olive);
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.auth-title {
+  font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.15;
+}
+
+.auth-subtitle {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 6px auto 0;
+  max-width: 32ch;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* --- Fields --- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  padding-left: 2px;
+}
+
+/* Inputs mirror the composer textarea: cream fill, rule border,
+   olive focus, serif italic placeholder. */
+.field-input {
+  width: 100%;
+  border: 1px solid rgba(197, 184, 150, 0.7);
+  background: var(--bubble-other);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: var(--ink);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.field-input::placeholder {
+  color: var(--ink-faint);
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--olive);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(111, 117, 72, 0.12);
+}
+
+.field-invalid .field-input {
+  border-color: var(--terracotta);
+}
+
+.field-invalid .field-input:focus {
+  border-color: var(--terracotta);
+  box-shadow: 0 0 0 3px rgba(154, 79, 60, 0.12);
+}
+
+/* Password field: input + reveal toggle sharing one bordered box. */
+.field-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-password .field-input {
+  padding-right: 46px;
+}
+
+.field-reveal {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  padding: 0;
+}
+
+.field-reveal:hover {
+  color: var(--ink-soft);
+  background: rgba(120, 100, 70, 0.08);
+}
+
+.field-reveal:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 1px;
+  color: var(--ink-soft);
+}
+
+.field-error {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--terracotta);
+  margin: 0;
+  padding-left: 2px;
+  animation: rise 200ms ease-out both;
+}
+
+/* --- Forgot password row --- */
+.auth-row-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.auth-inline-link {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.auth-inline-link:hover {
+  color: var(--olive);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* --- Submit button (extends .primary-btn) --- */
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 16px;
+  font-size: 17px;
+}
+
+/* --- Divider --- */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--ink-faint);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+  opacity: 0.7;
+}
+
+.auth-divider span {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+/* --- Google button --- */
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s,
+    box-shadow 0.15s;
+  box-shadow: var(--shadow);
+}
+
+.google-btn:hover {
+  background: #fbf6e8;
+  border-color: var(--ink-faint);
+  box-shadow: 0 2px 8px rgba(60, 45, 25, 0.1);
+}
+
+.google-btn:active {
+  transform: scale(0.99);
+}
+
+.google-btn:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+}
+
+.google-btn svg {
+  flex-shrink: 0;
+}
+
+/* --- Footer link --- */
+.auth-footer {
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  margin: 22px 0 0;
+}
+
+.auth-footer a {
+  color: var(--olive);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.auth-footer a:hover {
+  border-bottom-color: var(--olive);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card,
+  .field-error {
+    animation: none;
+  }
+  .auth-back:hover svg {
+    transform: none;
+  }
+}
+
+/* --- Mobile tuning --- */
+@media (max-width: 480px) {
+  .auth-stage {
+    padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+    align-items: flex-start;
+  }
+  .auth-card {
+    padding: 24px 22px 28px;
+    border-radius: 16px;
+  }
+  .auth-title {
+    font-size: 26px;
+  }
+  .auth-subtitle {
+    font-size: 14.5px;
+  }
+}
